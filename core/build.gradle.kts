@@ -26,7 +26,7 @@ publishing {
             from(components["java"])
             artifact(dokkaJar)
 
-            groupId = "com.millburnx"
+            groupId = "com.pedropathing"
             artifactId = "pedropathing-core"
             version = "0.1.2"
 

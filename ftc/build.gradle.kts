@@ -47,7 +47,7 @@ afterEvaluate {
                 from(components["release"])
                 artifact(dokkaJar)
 
-                groupId = "com.millburnx"
+                groupId = "com.pedropathing"
                 artifactId = "pedropathing-ftc"
                 version = "0.1.2"
 
