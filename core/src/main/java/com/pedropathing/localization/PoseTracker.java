@@ -18,7 +18,7 @@ public class PoseTracker {
 
     private final Localizer localizer;
 
-    private Pose startingPose = new Pose(0,0,0);
+    private Pose startingPose = new Pose(0, 0, 0);
 
     private Pose currentPose = startingPose.copy();
 
@@ -58,9 +58,11 @@ public class PoseTracker {
      * acceleration. The cache for the current pose, velocity, and acceleration is cleared, and
      * the time stamps are updated as well.
      */
-    public void update() {
-        previousVelocity = getVelocity();
-        previousPose = applyOffset(getRawPose());
+    public synchronized void update() {
+        Vector newPreviousVelocity = getVelocity();
+        if (newPreviousVelocity != null) previousVelocity = newPreviousVelocity;
+        Pose newPreviousPose = applyOffset(getRawPose());
+        if (newPreviousPose != null) previousPose = newPreviousPose;
         currentPose = null;
         currentVelocity = null;
         currentAcceleration = null;
@@ -85,7 +87,6 @@ public class PoseTracker {
     /**
      * This sets the current pose, using offsets. Think of using offsets as setting trim in an
      * aircraft. This can be reset as well, so beware of using the resetOffset() method.
-     *
      *
      * @param set The pose to set the current pose to.
      */
@@ -157,7 +158,8 @@ public class PoseTracker {
      * @return This returns a new Pose with the offset applied.
      */
     public Pose applyOffset(Pose pose) {
-        return new Pose(pose.getX()+xOffset, pose.getY()+yOffset, pose.getHeading()+headingOffset);
+        if (pose == null) return new Pose();
+        return new Pose(pose.getX() + xOffset, pose.getY() + yOffset, pose.getHeading() + headingOffset);
     }
 
     /**
@@ -178,9 +180,14 @@ public class PoseTracker {
      *
      * @return returns the current pose.
      */
-    public Pose getPose() {
+    public synchronized Pose getPose() {
+        Pose currentPose = this.currentPose;
         if (currentPose == null) {
             currentPose = localizer.getPose();
+            this.currentPose = currentPose;
+        }
+        if (currentPose == null) {
+            return previousPose;
         }
         return applyOffset(currentPose);
     }
@@ -192,9 +199,14 @@ public class PoseTracker {
      *
      * @return returns the raw pose.
      */
-    public Pose getRawPose() {
+    public synchronized Pose getRawPose() {
+        Pose currentPose = this.currentPose;
         if (currentPose == null) {
             currentPose = localizer.getPose();
+            this.currentPose = currentPose;
+        }
+        if (currentPose == null) {
+            return previousPose;
         }
         return currentPose;
     }
@@ -235,8 +247,15 @@ public class PoseTracker {
      *
      * @return returns the velocity of the robot.
      */
-    public Vector getVelocity() {
-        if (currentVelocity == null) currentVelocity = localizer.getVelocity();
+    public synchronized Vector getVelocity() {
+        Pose currentVelocity = this.currentVelocity;
+        if (currentVelocity == null) {
+            currentVelocity = localizer.getVelocity();
+            this.currentVelocity = currentVelocity;
+        }
+        if (currentVelocity == null) {
+            return previousVelocity;
+        }
         return currentVelocity.getAsVector();
     }
 
@@ -245,8 +264,15 @@ public class PoseTracker {
      *
      * @return returns the angular velocity of the robot.
      */
-    public double getAngularVelocity() {
-        if (currentVelocity == null) currentVelocity = localizer.getVelocity();
+    public synchronized double getAngularVelocity() {
+        Pose currentVelocity = this.currentVelocity;
+        if (currentVelocity == null) {
+            currentVelocity = localizer.getVelocity();
+            this.currentVelocity = currentVelocity;
+        }
+        if (currentVelocity == null) {
+            return 0;
+        }
         return currentVelocity.getHeading();
     }
 
@@ -257,7 +283,7 @@ public class PoseTracker {
      *
      * @return returns the acceleration of the robot.
      */
-    public Vector getAcceleration() {
+    public synchronized Vector getAcceleration() {
         if (currentAcceleration == null) {
             currentAcceleration = getVelocity().minus(previousVelocity);
             currentAcceleration.setMagnitude(currentAcceleration.getMagnitude() / ((currentPoseTime - previousPoseTime) / Math.pow(10.0, 9)));
@@ -294,7 +320,7 @@ public class PoseTracker {
         if (!Double.isNaN(getIMUHeadingEstimate()) && !Double.isInfinite(getIMUHeadingEstimate())) {
             return MathFunctions.normalizeAngle(-getIMUHeadingEstimate());
         }
-        
+
         return 0;
     }
 
